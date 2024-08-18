@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Bank System Metrics Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-4xl font-bold mb-8 text-center text-blue-600">Advanced Bank System Metrics Dashboard</h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Total Locust Requests</h2>
+                <p id="total-requests-value" class="text-3xl font-bold text-blue-500">0</p>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Deposits</h2>
+                <p id="deposits-value" class="text-3xl font-bold text-green-500">0</p>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Withdrawals</h2>
+                <p id="withdrawals-value" class="text-3xl font-bold text-red-500">0</p>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Failed Transactions</h2>
+                <p id="failed-transactions-value" class="text-3xl font-bold text-yellow-500">0</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Transaction Types</h2>
+                <canvas id="transactionTypesChart"></canvas>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Average Balance History</h2>
+                <canvas id="averageBalanceChart"></canvas>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Transaction Processing Time</h2>
+                <canvas id="transactionTimeChart"></canvas>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Queue Size History</h2>
+                <canvas id="queueSizeChart"></canvas>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Current Queue Size</h2>
+                <p id="current-queue-size" class="text-3xl font-bold text-purple-500">0</p>
+            </div>
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">Average Transaction Time</h2>
+                <p id="avg-transaction-time" class="text-3xl font-bold text-indigo-500">0 ms</p>
+            </div>
+        </div>
+
+        <div class="text-center">
+            <button id="updateMetrics" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Update Metrics
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let transactionTypesChart, averageBalanceChart, transactionTimeChart, queueSizeChart;
+        let lastTotalRequests = 0;
+
+        function updateMetrics() {
+            fetch('/metrics')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.total_requests > lastTotalRequests) {
+                        document.getElementById('total-requests-value').textContent = data.total_requests;
+                        lastTotalRequests = data.total_requests;
+                    }
+                    document.getElementById('deposits-value').textContent = data.transaction_counts.deposits;
+                    document.getElementById('withdrawals-value').textContent = data.transaction_counts.withdrawals;
+                    document.getElementById('failed-transactions-value').textContent = 
+                        data.transaction_counts.insufficient_funds + data.transaction_counts.error;
+                    document.getElementById('current-queue-size').textContent = data.current_queue_size;
+
+                    const avgTransactionTime = data.transaction_times.length > 0 
+                        ? (data.transaction_times.reduce((a, b) => a + b, 0) / data.transaction_times.length * 1000).toFixed(2)
+                        : 0;
+                    document.getElementById('avg-transaction-time').textContent = `${avgTransactionTime} ms`;
+
+                    updateTransactionTypesChart(data.transaction_counts);
+                    updateAverageBalanceChart(data.average_balance_history);
+                    updateTransactionTimeChart(data.transaction_times);
+                    updateQueueSizeChart(data.queue_size_history);
+                });
+        }
+
+        function updateTransactionTypesChart(transactionCounts) {
+            const ctx = document.getElementById('transactionTypesChart').getContext('2d');
+            const data = {
+                labels: ['Deposits', 'Withdrawals', 'Insufficient Funds', 'Errors'],
+                datasets: [{
+                    data: [
+                        transactionCounts.deposits,
+                        transactionCounts.withdrawals,
+                        transactionCounts.insufficient_funds,
+                        transactionCounts.error
+                    ],
+                    backgroundColor: ['#10B981', '#EF4444', '#F59E0B', '#6B7280']
+                }]
+            };
+
+            if (transactionTypesChart) {
+                transactionTypesChart.data = data;
+                transactionTypesChart.update();
+            } else {
+                transactionTypesChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                            },
+                            title: {
+                                display: true,
+                                text: 'Transaction Types'
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function updateAverageBalanceChart(balanceHistory) {
+            const ctx = document.getElementById('averageBalanceChart').getContext('2d');
+            const data = {
+                labels: Array.from({length: balanceHistory.length}, (_, i) => i + 1),
+                datasets: [{
+                    label: 'Average Balance',
+                    data: balanceHistory,
+                    borderColor: '#3B82F6',
+                    fill: false
+                }]
+            };
+
+            if (averageBalanceChart) {
+                averageBalanceChart.data = data;
+                averageBalanceChart.update();
+            } else {
+                averageBalanceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                            },
+                            title: {
+                                display: true,
+                                text: 'Average Balance History'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function updateTransactionTimeChart(transactionTimes) {
+            const ctx = document.getElementById('transactionTimeChart').getContext('2d');
+            const data = {
+                labels: Array.from({length: transactionTimes.length}, (_, i) => i + 1),
+                datasets: [{
+                    label: 'Transaction Time (seconds)',
+                    data: transactionTimes,
+                    borderColor: '#10B981',
+                    fill: false
+                }]
+            };
+
+            if (transactionTimeChart) {
+                transactionTimeChart.data = data;
+                transactionTimeChart.update();
+            } else {
+                transactionTimeChart = new Chart(ctx, {
+                    type: 'line',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                            },
+                            title: {
+                                display: true,
+                                text: 'Transaction Processing Time'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function updateQueueSizeChart(queueSizeHistory) {
+            const ctx = document.getElementById('queueSizeChart').getContext('2d');
+            const data = {
+                labels: Array.from({length: queueSizeHistory.length}, (_, i) => i + 1),
+                datasets: [{
+                    label: 'Queue Size',
+                    data: queueSizeHistory,
+                    borderColor: '#8B5CF6',
+                    fill: false
+                }]
+            };
+
+            if (queueSizeChart) {
+                queueSizeChart.data = data;
+                queueSizeChart.update();
+            } else {
+                queueSizeChart = new Chart(ctx, {
+                    type: 'line',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                            },
+                            title: {
+                                display: true,
+                                text: 'Queue Size History'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        document.getElementById('updateMetrics').addEventListener('click', updateMetrics);
+
+        setInterval(updateMetrics, 1000);
+
+        updateMetrics();
+    </script>
+</body>
+</html>
