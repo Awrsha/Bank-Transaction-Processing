@@ -97,8 +97,13 @@ To make the PATH changes permanent:
    systeminfo.exe | find "System Type"
    systeminfo.exe | find "BIOS Mode"
    ```
+Finally. **Compile & Run**:
+   ```powershell
+   mojo build transaction_processor.mojo
+   ./transaction_processor
+   ```
 
-3. **Enable Virtualization**: Ensure that virtualization is enabled in your system’s BIOS.
+**Note**: Ensure that virtualization is enabled in your system’s BIOS.
 
 ## Additional Assistance
 
