@@ -146,7 +146,7 @@ POST /transaction
 
 ## 📜 License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the [Apache-2.0 License](https://github.com/Awrsha/Bank-Transaction-Processing/tree/master#Apache-2.0-1-ov-file).
 
 ---
 
